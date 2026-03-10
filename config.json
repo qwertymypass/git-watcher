@@ -1,0 +1,13 @@
+{
+  "user": "",
+  "password": "",
+  "telegramBotToken": "",
+  "telegramChatId": "",
+  "projects": [
+    {
+      "branch": "main",
+      "commands": [],
+      "dir": "/var/www/myapp"
+    }
+  ]
+}
