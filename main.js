@@ -21,37 +21,46 @@ const {
 } = JSON.parse(fs.readFileSync(configPath, "utf8"));
 
 function sendTelegram(text) {
-	if (!telegramBotToken || !telegramChatId) return;
+	if (!telegramBotToken || !telegramChatId) return Promise.resolve();
 
-	const body = JSON.stringify({
-		chat_id: telegramChatId,
-		text,
-		parse_mode: "HTML",
-	});
+	return new Promise((resolve) => {
+		const body = JSON.stringify({
+			chat_id: telegramChatId,
+			text,
+			parse_mode: "HTML",
+		});
 
-	const req = https.request(
-		{
-			hostname: "api.telegram.org",
-			path: `/bot${telegramBotToken}/sendMessage`,
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				"Content-Length": Buffer.byteLength(body),
+		const req = https.request(
+			{
+				hostname: "api.telegram.org",
+				path: `/bot${telegramBotToken}/sendMessage`,
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"Content-Length": Buffer.byteLength(body),
+				},
 			},
-		},
-		(res) => {
-			if (res.statusCode !== 200) {
-				let data = "";
-				res.on("data", (chunk) => (data += chunk));
-				res.on("end", () =>
-					console.log(`[telegram] Ошибка (${res.statusCode}): ${data}`),
-				);
-			}
-		},
-	);
+			(res) => {
+				if (res.statusCode !== 200) {
+					let data = "";
+					res.on("data", (chunk) => (data += chunk));
+					res.on("end", () => {
+						console.log(`[telegram] Ошибка (${res.statusCode}): ${data}`);
+						resolve();
+					});
+				} else {
+					res.resume();
+					res.on("end", resolve);
+				}
+			},
+		);
 
-	req.on("error", (err) => console.log(`[telegram] ${err.message}`));
-	req.end(body);
+		req.on("error", (err) => {
+			console.log(`[telegram] ${err.message}`);
+			resolve();
+		});
+		req.end(body);
+	});
 }
 
 const gate = () => new Date().toISOString().replace("T", " ").slice(0, 19);
@@ -59,7 +68,7 @@ const gate = () => new Date().toISOString().replace("T", " ").slice(0, 19);
 const log = (projectDir, msg) =>
 	console.log(`[${gate()}] [${projectDir}] ${msg}`);
 
-function checkAndDeploy() {
+async function checkAndDeploy() {
 	for (const project of projects) {
 		const {
 			dir,
@@ -108,7 +117,7 @@ function checkAndDeploy() {
 
 		if (pull.status !== 0) {
 			log(dir, `ERROR: git pull завершился с ошибкой (код ${pull.status})`);
-			sendTelegram(
+			await sendTelegram(
 				`❌ <b>${dir}</b>\ngit pull ошибка (код ${pull.status})\n\n<pre>${output.slice(0, 500)}</pre>`,
 			);
 
@@ -121,7 +130,7 @@ function checkAndDeploy() {
 		}
 
 		log(dir, "Есть изменения! Запуск команд...");
-		sendTelegram(`🚀 <b>${dir}</b>\nОбнаружены изменения, начинаю деплой...`);
+		await sendTelegram(`🚀 <b>${dir}</b>\nОбнаружены изменения, начинаю деплой...`);
 
 		let failed = false;
 		for (const cmd of commands) {
@@ -132,7 +141,7 @@ function checkAndDeploy() {
 					dir,
 					`ERROR: Команда завершилась с ошибкой (код ${result.status}): ${cmd}`,
 				);
-				sendTelegram(
+				await sendTelegram(
 					`❌ <b>${dir}</b>\nОшибка при выполнении:\n<pre>${cmd}</pre>\nКод: ${result.status}`,
 				);
 				failed = true;
@@ -144,7 +153,7 @@ function checkAndDeploy() {
 
 		if (!failed) {
 			log(dir, "Деплой завершён успешно.");
-			sendTelegram(`✅ <b>${dir}</b>\nДеплой завершён успешно.`);
+			await sendTelegram(`✅ <b>${dir}</b>\nДеплой завершён успешно.`);
 		}
 	}
 }
