@@ -95,7 +95,7 @@ function checkAndDeploy() {
 
 			const branchPart = branch ? `${branch}` : "";
 
-			pullCmd = `git pull ${authedUrl}${branchPart}`;
+			pullCmd = `git pull ${authedUrl} ${branchPart}`;
 		} else {
 			pullCmd = branch ? `git pull origin ${branch}` : "git pull";
 		}
@@ -153,4 +153,5 @@ const INTERVAL_MS = 60 * 1000; // 1 минута
 
 console.log(`[git-watcher] Запущен. Проверка каждые ${INTERVAL_MS / 1000}с.`);
 
-setInterval(checkAndDeploy, INTERVAL_MS).unref();
+checkAndDeploy();
+setInterval(checkAndDeploy, INTERVAL_MS);
